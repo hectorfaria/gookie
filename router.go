@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	r "gopkg.in/rethinkdb/rethinkdb-go.v5"
 )
 
 // Handler is a function that is basically a constructor
@@ -12,7 +13,8 @@ type Handler func(*Client, interface{})
 
 // Router has an array of string called rules
 type Router struct {
-	rules map[string]Handler
+	rules   map[string]Handler
+	session *r.Session
 }
 
 var upgrader = websocket.Upgrader{
@@ -22,9 +24,10 @@ var upgrader = websocket.Upgrader{
 }
 
 // NewRouter Basically a constructor that set initial parameters
-func NewRouter() *Router {
+func NewRouter(session *r.Session) *Router {
 	return &Router{
-		rules: make(map[string]Handler),
+		rules:   make(map[string]Handler),
+		session: session,
 	}
 }
 
@@ -47,7 +50,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, h *http.Request) {
 		fmt.Fprint(w, err.Error())
 		return
 	}
-	client := NewClient(socket, r.FindHandler)
+	client := NewClient(socket, r.FindHandler, r.session)
+	defer client.Close()
 	go client.Write()
 	client.Read()
 }
